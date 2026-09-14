@@ -1,0 +1,1863 @@
+openapi: 3.0.3
+info:
+  title: Mithaq
+  version: 0.1.0
+  description: >-
+    National data-sharing compact register. Designated national datasets carry a named
+    steward and a curation record; every release runs through decision-class
+    classification, an explainability tier assignment, and a re-identification
+    assessment sized against a small national population. Compacts bind the receiver,
+    price reciprocity, operate in mandatory or voluntary mode, and resolve into either a
+    production grant or a time-boxed sandbox with a forced expiry action.
+  x-product-slug: ai-gov-mithaq
+  x-source: ai-in-gov/National_AI_Strategy_for_Qatar-Blueprint_30Jan2019/
+servers:
+  - url: https://api.example.com
+tags:
+  - name: Catalogue
+    description: Designation of national datasets and appointment of stewards
+  - name: Curation
+    description: Description, field semantics, and repurposability metadata
+  - name: Requests
+    description: Access request intake and decision-class classification
+  - name: EthicsTiers
+    description: Locally versioned explainability tier framework and tier assignment
+  - name: RiskAssessment
+    description: Re-identification assessment against the national population
+  - name: Compacts
+    description: Sharing compacts, receiver obligations, reciprocity, and mode
+  - name: Access
+    description: Production access grants against an issued compact
+  - name: Sandboxes
+    description: Time-boxed pilots with bounded scope and forced expiry
+  - name: Obligations
+    description: Obligation monitoring, breach adjudication, and suspension
+  - name: CrossBorder
+    description: Cross-border compacts with counterpart jurisdictions
+  - name: Reporting
+    description: Derived applications and the standing committee report
+paths:
+  /v1/datasets:
+    get:
+      operationId: listNationalDatasets
+      tags: [Catalogue]
+      summary: List designated national datasets
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: holdingEntityId
+          in: query
+          schema:
+            type: string
+        - name: strategicDomain
+          in: query
+          schema:
+            $ref: "#/components/schemas/StrategicDomain"
+      responses:
+        "200":
+          description: Datasets page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeNationalDataset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: designateNationalDataset
+      tags: [Catalogue]
+      summary: Bring a dataset into scope of the register
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NationalDatasetCreate"
+      responses:
+        "201":
+          description: Dataset designated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeNationalDataset"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /v1/datasets/{datasetId}:
+    parameters:
+      - $ref: "#/components/parameters/DatasetId"
+    get:
+      operationId: getNationalDataset
+      tags: [Catalogue]
+      summary: Retrieve a designated dataset with its access terms
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Dataset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeNationalDataset"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/datasets/{datasetId}/steward:
+    parameters:
+      - $ref: "#/components/parameters/DatasetId"
+    put:
+      operationId: appointDatasetSteward
+      tags: [Catalogue]
+      summary: Appoint or replace the named steward for a dataset
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetSteward"
+      responses:
+        "200":
+          description: Steward recorded, existing compacts unaffected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeDatasetSteward"
+  /v1/datasets/{datasetId}/curation-record:
+    parameters:
+      - $ref: "#/components/parameters/DatasetId"
+    put:
+      operationId: publishCurationRecord
+      tags: [Curation]
+      summary: Publish field semantics and repurposability metadata
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CurationRecordCreate"
+      responses:
+        "200":
+          description: Curation record published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCurationRecord"
+  /v1/access-requests:
+    get:
+      operationId: listAccessRequests
+      tags: [Requests]
+      summary: List access requests with decision status
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: datasetId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - submitted
+              - classified
+              - awaiting_tier
+              - awaiting_risk_assessment
+              - approved
+              - refused
+              - lapsed
+      responses:
+        "200":
+          description: Access requests page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeAccessRequest"
+    post:
+      operationId: submitAccessRequest
+      tags: [Requests]
+      summary: Submit an access request stating the intended use
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccessRequestCreate"
+      responses:
+        "201":
+          description: Request submitted with a decision deadline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeAccessRequest"
+  /v1/access-requests/{requestId}/classification:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      operationId: classifyDecisionClass
+      tags: [Requests]
+      summary: Classify the intended use into a decision class
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decisionClassCode, classifierName]
+              properties:
+                decisionClassCode:
+                  type: string
+                classifierName:
+                  type: string
+                rationale:
+                  type: string
+      responses:
+        "200":
+          description: Decision class assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeAccessRequest"
+  /v1/access-requests/{requestId}/refusal:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      operationId: refuseAccessRequest
+      tags: [Requests]
+      summary: Refuse a request with a recorded reason inside the service period
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  enum:
+                    - strategic_value
+                    - privacy_risk
+                    - reidentification_threshold
+                    - out_of_scope_security
+                    - incomplete_application
+                    - competing_exclusivity
+                narrative:
+                  type: string
+                alternativeOffered:
+                  type: string
+                  enum: [none, aggregate_release, synthetic_release, sandbox_only]
+      responses:
+        "200":
+          description: Refusal recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeAccessRequest"
+  /v1/decision-classes:
+    get:
+      operationId: listDecisionClasses
+      tags: [EthicsTiers]
+      summary: List decision classes and their default tiers
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Decision classes page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeDecisionClass"
+  /v1/explainability-tiers:
+    get:
+      operationId: listExplainabilityTiers
+      tags: [EthicsTiers]
+      summary: List tier definitions for a framework version
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: frameworkVersion
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tiers page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeExplainabilityTier"
+    post:
+      operationId: publishExplainabilityTierVersion
+      tags: [EthicsTiers]
+      summary: Publish a new locally authored tier framework version
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExplainabilityTier"
+      responses:
+        "201":
+          description: Tier published under a new framework version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeExplainabilityTier"
+  /v1/access-requests/{requestId}/tier-assignment:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      operationId: assignExplainabilityTier
+      tags: [EthicsTiers]
+      summary: Assign an explainability tier as a reviewer act
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TierAssignmentCreate"
+      responses:
+        "201":
+          description: Tier assigned with preconditions on production use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeTierAssignment"
+  /v1/access-requests/{requestId}/reidentification-assessment:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      operationId: assessReidentificationRisk
+      tags: [RiskAssessment]
+      summary: Assess extract risk against the national population
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReidentificationAssessmentCreate"
+      responses:
+        "201":
+          description: Assessment recorded with clear, downgrade, or block outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeReidentificationAssessment"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /v1/compacts:
+    get:
+      operationId: listSharingCompacts
+      tags: [Compacts]
+      summary: List sharing compacts
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [mandatory, voluntary]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [issued, active, suspended, expired, terminated]
+      responses:
+        "200":
+          description: Compacts page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeSharingCompact"
+    post:
+      operationId: issueSharingCompact
+      tags: [Compacts]
+      summary: Issue a compact binding the receiver's obligations
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharingCompactCreate"
+      responses:
+        "201":
+          description: Compact issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSharingCompact"
+        "409":
+          description: Blocked because tier assignment or risk assessment is missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/compacts/{compactId}/mode:
+    parameters:
+      - $ref: "#/components/parameters/CompactId"
+    post:
+      operationId: elevateCompactMode
+      tags: [Compacts]
+      summary: Elevate a compact to mandatory mode after a policy decision
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode, policyInstrumentReference]
+              properties:
+                mode:
+                  type: string
+                  enum: [mandatory, voluntary]
+                policyInstrumentReference:
+                  type: string
+                  description: Reference to the guideline elevated into policy
+                effectiveFrom:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Mode changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSharingCompact"
+  /v1/compacts/{compactId}/reciprocity-contributions:
+    parameters:
+      - $ref: "#/components/parameters/CompactId"
+    post:
+      operationId: recordReciprocityContribution
+      tags: [Compacts]
+      summary: Record a contribution back and apply the better-terms schedule
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReciprocityContributionCreate"
+      responses:
+        "201":
+          description: Contribution recorded and terms tier recalculated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeReciprocityContribution"
+  /v1/compacts/{compactId}/access-grants:
+    parameters:
+      - $ref: "#/components/parameters/CompactId"
+    post:
+      operationId: activateAccessGrant
+      tags: [Access]
+      summary: Activate production access against an issued compact
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccessGrantCreate"
+      responses:
+        "201":
+          description: Grant activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeAccessGrant"
+        "409":
+          description: Blocked because a top-tier condition is unmet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/sandboxes:
+    get:
+      operationId: listSandboxes
+      tags: [Sandboxes]
+      summary: List time-boxed sandboxes and their expiry state
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [authorised, running, expiring, expired_deleted, expired_repermissioned, revoked]
+      responses:
+        "200":
+          description: Sandboxes page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeSandbox"
+    post:
+      operationId: authoriseSandbox
+      tags: [Sandboxes]
+      summary: Authorise a bounded pilot with a fixed end date
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxCreate"
+      responses:
+        "201":
+          description: Sandbox authorised
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSandbox"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /v1/sandboxes/{sandboxId}/expiry-action:
+    parameters:
+      - $ref: "#/components/parameters/SandboxId"
+    post:
+      operationId: executeSandboxExpiryAction
+      tags: [Sandboxes]
+      summary: Delete or explicitly re-permission a sandbox at expiry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [delete, repermission, revoke]
+                deletionProofReference:
+                  type: string
+                newCompactId:
+                  type: string
+      responses:
+        "200":
+          description: Expiry action executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSandbox"
+  /v1/obligation-breaches:
+    get:
+      operationId: listObligationBreaches
+      tags: [Obligations]
+      summary: List recorded obligation breaches
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: receiverId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Breaches page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeObligationBreach"
+    post:
+      operationId: recordObligationBreach
+      tags: [Obligations]
+      summary: Record a breach and suspend the receiver across all entities
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObligationBreachCreate"
+      responses:
+        "201":
+          description: Breach recorded and cross-entity suspension applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeObligationBreach"
+  /v1/cross-border-compacts:
+    get:
+      operationId: listCrossBorderCompacts
+      tags: [CrossBorder]
+      summary: List cross-border compacts and ratification status
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Cross-border compacts page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeCrossBorderCompact"
+    post:
+      operationId: registerCrossBorderCompact
+      tags: [CrossBorder]
+      summary: Register a compact with a counterpart jurisdiction
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrossBorderCompactCreate"
+      responses:
+        "201":
+          description: Cross-border compact registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCrossBorderCompact"
+  /v1/derived-applications:
+    get:
+      operationId: listDerivedApplications
+      tags: [Reporting]
+      summary: List applications built on compact data
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: strategicDomain
+          in: query
+          schema:
+            $ref: "#/components/schemas/StrategicDomain"
+      responses:
+        "200":
+          description: Derived applications page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeDerivedApplication"
+    post:
+      operationId: registerDerivedApplication
+      tags: [Reporting]
+      summary: Register an application built on a compact
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DerivedApplicationCreate"
+      responses:
+        "201":
+          description: Derived application registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeDerivedApplication"
+  /v1/reports/committee:
+    get:
+      operationId: getCommitteeReport
+      tags: [Reporting]
+      summary: Standing account for the national AI committee
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            example: 2026-H1
+      responses:
+        "200":
+          description: Committee report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCommitteeReport"
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    DatasetId:
+      name: datasetId
+      in: path
+      required: true
+      schema:
+        type: string
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+    CompactId:
+      name: compactId
+      in: path
+      required: true
+      schema:
+        type: string
+    SandboxId:
+      name: sandboxId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    UnprocessableEntity:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    ResponseMeta:
+      type: object
+      required: [requestId, timestamp]
+      properties:
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          example: QAR
+    StrategicDomain:
+      type: string
+      description: National priority domains named in the strategy blueprint
+      enum:
+        - arabic_language
+        - precision_medicine
+        - transport_and_events
+        - food_security
+        - oil_and_gas
+        - cybersecurity
+        - public_services
+    HoldingEntity:
+      type: object
+      required: [id, name, entityType]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        entityType:
+          type: string
+          enum: [ministry, health_provider, research_institute, state_operator, private_holder]
+        subjectToMandatoryPolicy:
+          type: boolean
+          description: True where sharing guidelines have been elevated to policy for this entity
+        decisionServicePeriodDays:
+          type: integer
+    DatasetSteward:
+      type: object
+      required: [name, role, holdingEntityId]
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+        holdingEntityId:
+          type: string
+        appointedAt:
+          type: string
+          format: date-time
+        delegateName:
+          type: string
+    NationalDataset:
+      type: object
+      required: [id, holdingEntityId, name, sensitivityClass, designatedAt]
+      properties:
+        id:
+          type: string
+        holdingEntityId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        strategicDomain:
+          $ref: "#/components/schemas/StrategicDomain"
+        sensitivityClass:
+          type: string
+          enum: [open, restricted, sensitive_personal, genomic, security_excluded]
+        subjectPopulationSize:
+          type: integer
+          description: Number of individuals represented, used to size re-identification risk
+        steward:
+          $ref: "#/components/schemas/DatasetSteward"
+        standingAccessTerms:
+          type: string
+        curationRecordPublished:
+          type: boolean
+        designatedAt:
+          type: string
+          format: date-time
+    NationalDatasetCreate:
+      type: object
+      required: [holdingEntityId, name, sensitivityClass]
+      properties:
+        holdingEntityId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        strategicDomain:
+          $ref: "#/components/schemas/StrategicDomain"
+        sensitivityClass:
+          type: string
+          enum: [open, restricted, sensitive_personal, genomic, security_excluded]
+        subjectPopulationSize:
+          type: integer
+        steward:
+          $ref: "#/components/schemas/DatasetSteward"
+        standingAccessTerms:
+          type: string
+    CurationRecord:
+      type: object
+      required: [datasetId, version, publishedAt]
+      properties:
+        datasetId:
+          type: string
+        version:
+          type: integer
+        publishedAt:
+          type: string
+          format: date-time
+        fieldDefinitions:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              meaning:
+                type: string
+              unit:
+                type: string
+              nullSemantics:
+                type: string
+        languageCoverage:
+          type: array
+          items:
+            type: string
+        collectionPeriod:
+          type: string
+        knownBiases:
+          type: array
+          items:
+            type: string
+        repurposabilityNotes:
+          type: string
+        curationFundingReference:
+          type: string
+    CurationRecordCreate:
+      type: object
+      required: [fieldDefinitions]
+      properties:
+        fieldDefinitions:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              meaning:
+                type: string
+              unit:
+                type: string
+              nullSemantics:
+                type: string
+        languageCoverage:
+          type: array
+          items:
+            type: string
+        collectionPeriod:
+          type: string
+        knownBiases:
+          type: array
+          items:
+            type: string
+        repurposabilityNotes:
+          type: string
+        curationFundingReference:
+          type: string
+    DecisionClass:
+      type: object
+      required: [code, label, defaultTierCode]
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        affectsIndividualEntitlement:
+          type: boolean
+        allocatesScarcePublicGood:
+          type: boolean
+          description: True for classes such as prioritising patients for a scarce transplant
+        defaultTierCode:
+          type: string
+    ExplainabilityTier:
+      type: object
+      required: [code, frameworkVersion, label, requirements]
+      properties:
+        code:
+          type: string
+        frameworkVersion:
+          type: string
+        label:
+          type: string
+          example: tier_3_individual_account_required
+        requirements:
+          type: array
+          items:
+            type: string
+        plainLanguageAccountRequired:
+          type: boolean
+        transparentMethodRequired:
+          type: boolean
+        localNormsRationale:
+          type: string
+          description: Why the tier is set this way for the national context
+        internationalAlignmentNotes:
+          type: string
+        supersedes:
+          type: string
+    TierAssignment:
+      type: object
+      required: [id, requestId, tierCode, frameworkVersion, assignedAt]
+      properties:
+        id:
+          type: string
+        requestId:
+          type: string
+        decisionClassCode:
+          type: string
+        tierCode:
+          type: string
+        frameworkVersion:
+          type: string
+        reviewerName:
+          type: string
+        preconditions:
+          type: array
+          items:
+            type: string
+        productionUsePermitted:
+          type: boolean
+        assignedAt:
+          type: string
+          format: date-time
+    TierAssignmentCreate:
+      type: object
+      required: [tierCode, frameworkVersion, reviewerName]
+      properties:
+        tierCode:
+          type: string
+        frameworkVersion:
+          type: string
+        reviewerName:
+          type: string
+        preconditions:
+          type: array
+          items:
+            type: string
+    AccessRequest:
+      type: object
+      required: [id, datasetId, receiverId, intendedUse, status, submittedAt]
+      properties:
+        id:
+          type: string
+        datasetId:
+          type: string
+        receiverId:
+          type: string
+        receiverType:
+          type: string
+          enum: [ministry, research_institute, company, startup, foreign_authority]
+        intendedUse:
+          type: string
+        extractSpecification:
+          type: string
+        requestedSubjectCount:
+          type: integer
+        decisionClassCode:
+          type: string
+        status:
+          type: string
+          enum:
+            - submitted
+            - classified
+            - awaiting_tier
+            - awaiting_risk_assessment
+            - approved
+            - refused
+            - lapsed
+        refusalReason:
+          type: string
+        alternativeOffered:
+          type: string
+          enum: [none, aggregate_release, synthetic_release, sandbox_only]
+        submittedAt:
+          type: string
+          format: date-time
+        decisionDueAt:
+          type: string
+          format: date-time
+    AccessRequestCreate:
+      type: object
+      required: [datasetId, receiverId, intendedUse]
+      properties:
+        datasetId:
+          type: string
+        receiverId:
+          type: string
+        receiverType:
+          type: string
+          enum: [ministry, research_institute, company, startup, foreign_authority]
+        intendedUse:
+          type: string
+        extractSpecification:
+          type: string
+        requestedSubjectCount:
+          type: integer
+    ReidentificationAssessment:
+      type: object
+      required: [id, requestId, outcome, assessedAt]
+      properties:
+        id:
+          type: string
+        requestId:
+          type: string
+        requestedSubjectCount:
+          type: integer
+        nationalPopulationDenominator:
+          type: integer
+        cohortShareOfPopulation:
+          type: number
+          format: float
+        quasiIdentifiers:
+          type: array
+          items:
+            type: string
+        relatednessConcern:
+          type: boolean
+          description: Set where kinship structure in a small population raises inference risk
+        thresholdApplied:
+          type: string
+        outcome:
+          type: string
+          enum: [clear, downgrade_to_aggregate, downgrade_to_synthetic, block]
+        assessorName:
+          type: string
+        assessedAt:
+          type: string
+          format: date-time
+    ReidentificationAssessmentCreate:
+      type: object
+      required: [requestedSubjectCount, outcome, assessorName]
+      properties:
+        requestedSubjectCount:
+          type: integer
+        nationalPopulationDenominator:
+          type: integer
+        quasiIdentifiers:
+          type: array
+          items:
+            type: string
+        relatednessConcern:
+          type: boolean
+        thresholdApplied:
+          type: string
+        outcome:
+          type: string
+          enum: [clear, downgrade_to_aggregate, downgrade_to_synthetic, block]
+        assessorName:
+          type: string
+    ReceiverObligation:
+      type: object
+      required: [code, description, verifiable]
+      properties:
+        code:
+          type: string
+          example: no_onward_transfer
+        description:
+          type: string
+        verifiable:
+          type: boolean
+        evidenceDueEvery:
+          type: string
+          enum: [never, monthly, quarterly, annually, on_request]
+        breachConsequence:
+          type: string
+          enum: [warning, suspend_compact, suspend_receiver_all_entities, terminate]
+    SharingCompact:
+      type: object
+      required: [id, datasetId, receiverId, mode, status, issuedAt]
+      properties:
+        id:
+          type: string
+        datasetId:
+          type: string
+        requestId:
+          type: string
+        receiverId:
+          type: string
+        mode:
+          type: string
+          enum: [mandatory, voluntary]
+        policyInstrumentReference:
+          type: string
+        status:
+          type: string
+          enum: [issued, active, suspended, expired, terminated]
+        receiverObligations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceiverObligation"
+        tierAssignmentId:
+          type: string
+        reidentificationAssessmentId:
+          type: string
+        reciprocityTermsTier:
+          type: string
+          enum: [consumer, contributor, strategic_partner]
+        publishedFeeSchedule:
+          $ref: "#/components/schemas/Money"
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        registerSequence:
+          type: integer
+    SharingCompactCreate:
+      type: object
+      required: [datasetId, receiverId, mode, receiverObligations]
+      properties:
+        datasetId:
+          type: string
+        requestId:
+          type: string
+        receiverId:
+          type: string
+        mode:
+          type: string
+          enum: [mandatory, voluntary]
+        policyInstrumentReference:
+          type: string
+        receiverObligations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceiverObligation"
+        tierAssignmentId:
+          type: string
+        reidentificationAssessmentId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    ReciprocityContribution:
+      type: object
+      required: [id, compactId, contributedDatasetName, acceptedAt]
+      properties:
+        id:
+          type: string
+        compactId:
+          type: string
+        contributedDatasetName:
+          type: string
+        contributionType:
+          type: string
+          enum: [raw_data, labelled_data, corpus, model_outputs, curation_effort]
+        assessedContributionValue:
+          $ref: "#/components/schemas/Money"
+        resultingTermsTier:
+          type: string
+          enum: [consumer, contributor, strategic_partner]
+        acceptedAt:
+          type: string
+          format: date-time
+    ReciprocityContributionCreate:
+      type: object
+      required: [contributedDatasetName, contributionType]
+      properties:
+        contributedDatasetName:
+          type: string
+        contributionType:
+          type: string
+          enum: [raw_data, labelled_data, corpus, model_outputs, curation_effort]
+        assessedContributionValue:
+          $ref: "#/components/schemas/Money"
+    AccessGrant:
+      type: object
+      required: [id, compactId, status, activatedAt]
+      properties:
+        id:
+          type: string
+        compactId:
+          type: string
+        releaseForm:
+          type: string
+          enum: [identifiable, pseudonymised, aggregate, synthetic]
+        accessChannel:
+          type: string
+          enum: [holder_environment, secure_enclave, api, one_time_extract]
+        status:
+          type: string
+          enum: [active, suspended, revoked, expired]
+        activatedAt:
+          type: string
+          format: date-time
+        reviewDueAt:
+          type: string
+          format: date-time
+    AccessGrantCreate:
+      type: object
+      required: [releaseForm, accessChannel]
+      properties:
+        releaseForm:
+          type: string
+          enum: [identifiable, pseudonymised, aggregate, synthetic]
+        accessChannel:
+          type: string
+          enum: [holder_environment, secure_enclave, api, one_time_extract]
+        reviewDueAt:
+          type: string
+          format: date-time
+    Sandbox:
+      type: object
+      required: [id, compactId, status, startsAt, endsAt]
+      properties:
+        id:
+          type: string
+        compactId:
+          type: string
+        purpose:
+          type: string
+        eventWindowName:
+          type: string
+          description: Named fixed-date opportunity the pilot depends on
+        participantScope:
+          type: object
+          properties:
+            maximumSubjects:
+              type: integer
+            maximumOperators:
+              type: integer
+            geographicScope:
+              type: string
+        nonCostJustification:
+          type: string
+          enum:
+            - not_applicable
+            - service_quality
+            - capability_retention
+            - strategic_control
+            - safety
+            - environmental
+        nonCostJustificationNarrative:
+          type: string
+        status:
+          type: string
+          enum: [authorised, running, expiring, expired_deleted, expired_repermissioned, revoked]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        defaultExpiryAction:
+          type: string
+          enum: [delete, repermission, revoke]
+        deletionProofReference:
+          type: string
+    SandboxCreate:
+      type: object
+      required: [compactId, purpose, startsAt, endsAt, defaultExpiryAction]
+      properties:
+        compactId:
+          type: string
+        purpose:
+          type: string
+        eventWindowName:
+          type: string
+        participantScope:
+          type: object
+          properties:
+            maximumSubjects:
+              type: integer
+            maximumOperators:
+              type: integer
+            geographicScope:
+              type: string
+        nonCostJustification:
+          type: string
+          enum:
+            - not_applicable
+            - service_quality
+            - capability_retention
+            - strategic_control
+            - safety
+            - environmental
+        nonCostJustificationNarrative:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        defaultExpiryAction:
+          type: string
+          enum: [delete, repermission, revoke]
+    ObligationBreach:
+      type: object
+      required: [id, compactId, receiverId, obligationCode, status, recordedAt]
+      properties:
+        id:
+          type: string
+        compactId:
+          type: string
+        receiverId:
+          type: string
+        obligationCode:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [minor, material, serious]
+        status:
+          type: string
+          enum: [recorded, under_adjudication, upheld, dismissed, remediated]
+        consequenceApplied:
+          type: string
+          enum: [warning, suspend_compact, suspend_receiver_all_entities, terminate]
+        compactsSuspendedCount:
+          type: integer
+        recordedAt:
+          type: string
+          format: date-time
+    ObligationBreachCreate:
+      type: object
+      required: [compactId, obligationCode, severity]
+      properties:
+        compactId:
+          type: string
+        obligationCode:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [minor, material, serious]
+        consequenceApplied:
+          type: string
+          enum: [warning, suspend_compact, suspend_receiver_all_entities, terminate]
+    CrossBorderCompact:
+      type: object
+      required: [id, counterpartJurisdiction, status]
+      properties:
+        id:
+          type: string
+        counterpartJurisdiction:
+          type: string
+        counterpartAuthority:
+          type: string
+        strategicDomain:
+          $ref: "#/components/schemas/StrategicDomain"
+        reciprocalObligations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceiverObligation"
+        tierEquivalenceNotes:
+          type: string
+          description: How the counterpart's explainability duties map onto local tiers
+        status:
+          type: string
+          enum: [proposed, negotiating, ratified, suspended, lapsed]
+        ratifiedAt:
+          type: string
+          format: date-time
+        multilateralInstrumentName:
+          type: string
+    CrossBorderCompactCreate:
+      type: object
+      required: [counterpartJurisdiction, counterpartAuthority]
+      properties:
+        counterpartJurisdiction:
+          type: string
+        counterpartAuthority:
+          type: string
+        strategicDomain:
+          $ref: "#/components/schemas/StrategicDomain"
+        reciprocalObligations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceiverObligation"
+        tierEquivalenceNotes:
+          type: string
+        multilateralInstrumentName:
+          type: string
+    DerivedApplication:
+      type: object
+      required: [id, compactId, name, stage]
+      properties:
+        id:
+          type: string
+        compactId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        strategicDomain:
+          $ref: "#/components/schemas/StrategicDomain"
+        stage:
+          type: string
+          enum: [prototype, pilot, in_service, discontinued]
+        reusedExistingCuration:
+          type: boolean
+          description: True where no renegotiation of dataset semantics was needed
+        exportPotential:
+          type: boolean
+        tierConditionsMet:
+          type: boolean
+    DerivedApplicationCreate:
+      type: object
+      required: [compactId, name, stage]
+      properties:
+        compactId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        strategicDomain:
+          $ref: "#/components/schemas/StrategicDomain"
+        stage:
+          type: string
+          enum: [prototype, pilot, in_service, discontinued]
+        reusedExistingCuration:
+          type: boolean
+        exportPotential:
+          type: boolean
+    CommitteeReport:
+      type: object
+      properties:
+        period:
+          type: string
+        datasetsDesignated:
+          type: integer
+        datasetsWithCurationRecord:
+          type: integer
+        compactsActive:
+          type: integer
+        compactsInMandatoryMode:
+          type: integer
+        medianDaysRequestToDecision:
+          type: number
+          format: float
+        refusalRate:
+          type: number
+          format: float
+        requestsRefusedForReidentification:
+          type: integer
+        alternativesOfferedOnRefusal:
+          type: integer
+        tierAssignmentsByTier:
+          type: array
+          items:
+            type: object
+            properties:
+              tierCode:
+                type: string
+              count:
+                type: integer
+        sandboxesAuthorised:
+          type: integer
+        medianHoursToSandboxAuthorisation:
+          type: number
+          format: float
+        sandboxExpiriesWithProvenDeletion:
+          type: integer
+        breachesUpheld:
+          type: integer
+        receiversSuspended:
+          type: integer
+        derivedApplicationsInService:
+          type: integer
+        derivedApplicationsReusingCuration:
+          type: integer
+        crossBorderCompactsRatified:
+          type: integer
+        issuedAt:
+          type: string
+          format: date-time
+    DataEnvelopeNationalDataset:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/NationalDataset"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeDatasetSteward:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DatasetSteward"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCurationRecord:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CurationRecord"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeAccessRequest:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AccessRequest"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeExplainabilityTier:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ExplainabilityTier"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeTierAssignment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/TierAssignment"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeReidentificationAssessment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ReidentificationAssessment"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeSharingCompact:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SharingCompact"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeReciprocityContribution:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ReciprocityContribution"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeAccessGrant:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AccessGrant"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeSandbox:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Sandbox"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeObligationBreach:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ObligationBreach"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCrossBorderCompact:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CrossBorderCompact"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeDerivedApplication:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DerivedApplication"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCommitteeReport:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CommitteeReport"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeNationalDataset:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/NationalDataset"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeAccessRequest:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AccessRequest"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeDecisionClass:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DecisionClass"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeExplainabilityTier:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ExplainabilityTier"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeSharingCompact:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SharingCompact"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeSandbox:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Sandbox"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeObligationBreach:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ObligationBreach"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeCrossBorderCompact:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrossBorderCompact"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeDerivedApplication:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DerivedApplication"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
